@@ -2,6 +2,7 @@
 cd /d "%~dp0"
 echo Building AppMuter.exe...
 pyinstaller --onefile --windowed --name AppMuter ^
+    --icon app_muter\app_muter.ico ^
     --add-data "app_muter\config.json;." ^
     --hidden-import common ^
     --hidden-import common.config_manager ^

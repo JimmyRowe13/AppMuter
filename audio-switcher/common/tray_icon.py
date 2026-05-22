@@ -8,22 +8,28 @@ def create_tray_icon(muted: bool = False) -> Image.Image:
     img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
 
-    color = "white"
     if muted:
-        draw.ellipse([2, 2, 18, 18], fill="#f44336")
-        color = "#cccccc"
+        _draw_speaker(draw, fill=(80, 80, 80, 255))
+        draw.ellipse([6, 22, 58, 42], fill="#f44336")
+        draw.line([(24, 20), (40, 44)], fill="white", width=4)
+        draw.line([(40, 20), (24, 44)], fill="white", width=4)
+    else:
+        _draw_speaker(draw, fill="#4fc3f7")
 
-    draw.rectangle([8, 20, 24, 44], fill=color)
-    draw.polygon([(24, 20), (24, 44), (44, 52), (44, 12)], fill=color)
-    for offset in range(0, 12, 5):
+
+def _draw_speaker(draw, fill=(255, 255, 255, 255)):
+    # Speaker body
+    draw.rectangle([10, 22, 24, 42], fill=fill)
+    # Speaker cone (triangle)
+    draw.polygon([(24, 20), (24, 44), (42, 50), (42, 14)], fill=fill)
+    # Sound waves
+    for i, offset in enumerate([0, 5, 10]):
+        alpha = int(255 * (1 - i * 0.3))
+        color = (*fill[:3], alpha)
         draw.arc(
-            [28 + offset, 12 + offset, 56 - offset, 52 - offset],
-            start=300,
-            end=60,
-            fill=color,
-            width=3,
+            [28 + offset, 14 + offset, 56 - offset, 50 - offset],
+            start=300, end=60, fill=color, width=3,
         )
-    return img
 
 
 def run_tray(menu: pystray.Menu, tooltip: str, on_activate=None):
