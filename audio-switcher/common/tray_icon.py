@@ -9,15 +9,15 @@ def create_tray_icon(muted: bool = False) -> Image.Image:
     draw = ImageDraw.Draw(img)
 
     if muted:
-        _draw_speaker(draw, fill=(80, 80, 80, 255))
-        draw.ellipse([6, 22, 58, 42], fill="#f44336")
-        draw.line([(24, 20), (40, 44)], fill="white", width=4)
-        draw.line([(40, 20), (24, 44)], fill="white", width=4)
+        _draw_speaker(draw, fill=(80, 80, 80))
+        draw.ellipse([6, 22, 58, 42], fill=(244, 67, 54))
+        draw.line([(24, 20), (40, 44)], fill=(255, 255, 255), width=4)
+        draw.line([(40, 20), (24, 44)], fill=(255, 255, 255), width=4)
     else:
-        _draw_speaker(draw, fill="#4fc3f7")
+        _draw_speaker(draw, fill=(79, 195, 247))
 
 
-def _draw_speaker(draw, fill=(255, 255, 255, 255)):
+def _draw_speaker(draw, fill=(255, 255, 255)):
     # Speaker body
     draw.rectangle([10, 22, 24, 42], fill=fill)
     # Speaker cone (triangle)
@@ -25,7 +25,7 @@ def _draw_speaker(draw, fill=(255, 255, 255, 255)):
     # Sound waves
     for i, offset in enumerate([0, 5, 10]):
         alpha = int(255 * (1 - i * 0.3))
-        color = (*fill[:3], alpha)
+        color = (*fill, alpha)
         draw.arc(
             [28 + offset, 14 + offset, 56 - offset, 50 - offset],
             start=300, end=60, fill=color, width=3,
