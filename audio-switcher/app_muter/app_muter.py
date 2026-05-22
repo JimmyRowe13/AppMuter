@@ -196,4 +196,17 @@ def _handle_startup(enable: bool):
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        import traceback, tempfile
+        log_path = os.path.join(tempfile.gettempdir(), "app_muter_crash.log")
+        with open(log_path, "w", encoding="utf-8") as f:
+            f.write(traceback.format_exc())
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(
+            None,
+            f"App Muter crashed on startup:\n\n{e}\n\nDetails saved to:\n{log_path}",
+            "App Muter Error",
+            0x40010,
+        )
