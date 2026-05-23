@@ -15,6 +15,7 @@ def create_tray_icon(muted: bool = False) -> Image.Image:
         draw.line([(40, 20), (24, 44)], fill=(255, 255, 255), width=4)
     else:
         _draw_speaker(draw, fill=(79, 195, 247))
+    return img
 
 
 def _draw_speaker(draw, fill=(255, 255, 255)):
