@@ -18,8 +18,9 @@ from common.notifications import OSDOverlay
 from app_muter.muter_core import AppMuter
 from app_muter.settings_window import SettingsWindow
 
-_osd = OSDOverlay()
-_muter = AppMuter()
+# These are initialized in main()
+_osd = None
+_muter = None
 _tray_icon: Optional[pystray.Icon] = None
 _exit_event = threading.Event()
 _config = {}
@@ -37,30 +38,22 @@ def _get_config_dir() -> str:
     return os.path.dirname(os.path.abspath(__file__))
 
 
-# ---- Callbacks that run in their respective threads ----
-
 def on_hotkey():
-    """Keyboard hook thread. Signal main thread; no COM calls here."""
     _action_queue.put("TOGGLE")
 
 
 def on_tray_menu_settings(icon):
-    """Tray menu -> Settings. Signal main thread to open tkinter dialog."""
     _action_queue.put("OPEN_SETTINGS")
 
 
 def on_tray_menu_toggle(icon):
-    """Tray menu -> Toggle. Signal main thread to execute mute toggle."""
     _action_queue.put("TOGGLE")
 
 
 def on_tray_menu_exit(icon):
-    """Tray menu -> Exit. Stops tray and signals main thread directly."""
     icon.stop()
     _exit_event.set()
 
-
-# ---- Actions executed on the MAIN thread ----
 
 def _execute_toggle():
     try:
@@ -80,7 +73,6 @@ def _execute_toggle():
 
 
 def _open_settings():
-    """Open the settings dialog on the MAIN thread (required for tkinter)."""
     config_path = os.path.join(_get_config_dir(), "config.json")
     SettingsWindow(config_path=config_path, on_save_callback=_reload_config).show()
 
@@ -118,10 +110,39 @@ def _reregister_hotkey():
         pass
 
 
-# ---- Main entry point ----
+def _handle_startup(enable: bool):
+    import winreg
+    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    try:
+        key = winreg.OpenKey(
+            winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE
+        )
+    except OSError:
+        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
+    try:
+        if enable:
+            exe_path = sys.executable
+            if getattr(sys, "frozen", False):
+                target = exe_path
+            else:
+                target = f'"{exe_path}" "{os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_muter.py")}"'
+            winreg.SetValueEx(key, "AppMuter", 0, winreg.REG_SZ, target)
+        else:
+            try:
+                winreg.DeleteValue(key, "AppMuter")
+            except FileNotFoundError:
+                pass
+    finally:
+        winreg.CloseKey(key)
+
 
 def main():
-    global _tray_icon, _config
+    global _tray_icon, _config, _osd, _muter
+
+    # Initialize modules that may fail
+    _osd = OSDOverlay()
+    _muter = AppMuter()
+
     comtypes.CoInitialize()
 
     _config = load_config(os.path.join(_get_config_dir(), "config.json"))
@@ -154,10 +175,8 @@ def main():
         "app_muter", create_tray_icon(False), "App Muter", menu
     )
 
-    # Tray runs in background daemon thread. Main thread processes the action queue.
     _tray_icon.run_detached()
 
-    # Main thread event loop: processes toggle + settings requests
     while not _exit_event.is_set():
         try:
             action = _action_queue.get(timeout=0.3)
@@ -169,32 +188,6 @@ def main():
             pass
 
 
-def _handle_startup(enable: bool):
-    import winreg
-    key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
-    try:
-        key = winreg.OpenKey(
-            winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE
-        )
-    except OSError:
-        key = winreg.CreateKey(winreg.HKEY_CURRENT_USER, key_path)
-    try:
-        if enable:
-            exe_path = sys.executable
-            if getattr(sys, "frozen", False):
-                target = exe_path
-            else:
-                target = f'"{exe_path}" "{os.path.join(os.path.dirname(os.path.abspath(__file__)), "app_muter.py")}"'
-            winreg.SetValueEx(key, "AppMuter", 0, winreg.REG_SZ, target)
-        else:
-            try:
-                winreg.DeleteValue(key, "AppMuter")
-            except FileNotFoundError:
-                pass
-    finally:
-        winreg.CloseKey(key)
-
-
 if __name__ == "__main__":
     try:
         main()
@@ -203,10 +196,13 @@ if __name__ == "__main__":
         log_path = os.path.join(tempfile.gettempdir(), "app_muter_crash.log")
         with open(log_path, "w", encoding="utf-8") as f:
             f.write(traceback.format_exc())
-        import ctypes
-        ctypes.windll.user32.MessageBoxW(
-            None,
-            f"App Muter crashed on startup:\n\n{e}\n\nDetails saved to:\n{log_path}",
-            "App Muter Error",
-            0x40010,
-        )
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(
+                None,
+                f"App Muter failed to start:\n\n{e}\n\nLog: {log_path}",
+                "App Muter Error",
+                0x40010,
+            )
+        except Exception:
+            pass
